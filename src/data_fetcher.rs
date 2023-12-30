@@ -52,11 +52,41 @@ impl DataFetcher {
     pub async fn get_last_price(&self, symbol: &str) -> Result<f64, Box<dyn Error>> {
         let prices = self.get_historical_prices(symbol, None).await?;
         let max_date_metrics = prices.iter().max_by_key(|(&date, _)| date).unwrap().1;
-        return Ok(max_date_metrics.close);
+        return Ok(max_date_metrics.close.parse()?);
     }
-    //pub async fn compute_historical_volatility(&self, symbol: &str) -> Result<f64, Box<dyn Error>> {
+    pub async fn compute_historical_volatility(
+        &self,
+        symbol: &str,
+        until_date: Option<&NaiveDate>,
+    ) -> Result<f64, Box<dyn Error>> {
+        let prices = self.get_historical_prices(symbol, until_date).await?;
 
-    //}
+        if prices.len() < 2 {
+            return Err("Not enough data to compute volatility".into());
+        }
+
+        let mut price_vec: Vec<_> = prices.iter().collect();
+        price_vec.sort_by_key(|&(date, _)| date);
+
+        let mut returns = Vec::new();
+
+        for i in 1..price_vec.len() {
+            let current_price = price_vec[i].1.close.parse::<f64>()?;
+            let previous_price = price_vec[i - 1].1.close.parse::<f64>()?;
+            let daily_return = (current_price - previous_price) / previous_price;
+            returns.push(daily_return);
+        }
+
+        let mean_return = returns.iter().sum::<f64>() / returns.len() as f64;
+        let squared_diff_sum = returns
+            .iter()
+            .map(|&return_val| (return_val - mean_return).powi(2))
+            .sum::<f64>();
+        let variance = squared_diff_sum / returns.len() as f64;
+        let volatility = variance.sqrt();
+
+        Ok(volatility)
+    }
 }
 
 //Different JSON
@@ -85,13 +115,13 @@ struct MetaData {
 #[derive(Deserialize)]
 struct DailyData {
     #[serde(rename = "1. open")]
-    open: f64,
+    open: String,
     #[serde(rename = "2. high")]
-    high: f64,
+    high: String,
     #[serde(rename = "3. low")]
-    low: f64,
+    low: String,
     #[serde(rename = "4. close")]
-    close: f64,
+    close: String,
     #[serde(rename = "5. volume")]
-    volume: f64,
+    volume: String,
 }
