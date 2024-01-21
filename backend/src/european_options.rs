@@ -1,10 +1,10 @@
 use statrs::distribution::{ContinuousCDF, Normal};
 use std::f64::consts::E;
 
-trait Option {
+pub trait Option {
     fn price(&self) -> Result<f64, String>;
 }
-struct EuropeanCall {
+pub struct EuropeanCall {
     current_price: f64,
     strike_price: f64,
     time_to_maturity: f64,
@@ -41,6 +41,22 @@ pub struct EuropeanPut {
     time_to_maturity: f64,
     risk_free_rate: f64,
     volatility: f64,
+}
+
+pub fn new_european_put(
+    current_price: f64,
+    strike_price: f64,
+    time_to_maturity: f64,
+    risk_free_rate: f64,
+    volatility: f64,
+) -> EuropeanPut {
+    EuropeanPut {
+        current_price,
+        strike_price,
+        time_to_maturity,
+        risk_free_rate,
+        volatility,
+    }
 }
 
 impl Option for EuropeanPut {

@@ -14,6 +14,11 @@ pub struct DataFetcher {
     pub api_key: String,
 }
 
+pub #[derive(Debug)]
+struct Name {
+    field: Type
+} 
+
 pub fn new() -> DataFetcher {
     DataFetcher {
         base_url: String::from("https://www.alphavantage.co/query?"),
@@ -60,7 +65,6 @@ impl DataFetcher {
         until_date: Option<&NaiveDate>,
     ) -> Result<f64, Box<dyn Error>> {
         let prices = self.get_historical_prices(symbol, until_date).await?;
-
         if prices.len() < 2 {
             return Err("Not enough data to compute volatility".into());
         }
@@ -68,14 +72,15 @@ impl DataFetcher {
         let mut price_vec: Vec<_> = prices.iter().collect();
         price_vec.sort_by_key(|&(date, _)| date);
 
-        let mut returns = Vec::new();
-
-        for i in 1..price_vec.len() {
-            let current_price = price_vec[i].1.close.parse::<f64>()?;
-            let previous_price = price_vec[i - 1].1.close.parse::<f64>()?;
-            let daily_return = (current_price - previous_price) / previous_price;
-            returns.push(daily_return);
-        }
+        let returns: Vec<f64> = price_vec
+            .windows(2)
+            .filter_map(|price| {
+                let prev_price = price[0].1.close.parse::<f64>().ok()?;
+                let curr_price = price[1].1.close.parse::<f64>().ok()?;
+                let return_val = curr_price - prev_price / prev_price;
+                Some(return_val)
+            })
+            .collect();
 
         let mean_return = returns.iter().sum::<f64>() / returns.len() as f64;
         let squared_diff_sum = returns
